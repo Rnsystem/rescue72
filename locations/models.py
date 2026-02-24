@@ -1,6 +1,7 @@
 from django.db import models
 
 # Create your models here.
+from django.utils import timezone
 
 class Device(models.Model):
     device_id = models.CharField(max_length=255, unique=True)
@@ -30,7 +31,7 @@ class Location(models.Model):
         choices=SOURCE_CHOICES,
         default="manual"
     )
-    recorded_at = models.DateTimeField(auto_now_add=True)
-
+    recorded_at = models.DateTimeField(auto_now_add=True)  # 端末側時刻
+    captured_at = models.DateTimeField(null=True, blank=True) # サーバ保存時刻
     def __str__(self):
         return f"{self.device.device_id} @ {self.latitude}, {self.longitude}"
