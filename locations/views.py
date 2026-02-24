@@ -10,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import Device, Location
-from alerts.models import Alert
+from django.db import transaction
 
 def require_api_key(request) -> bool:
     expected = os.environ.get("API_KEY")
@@ -50,6 +50,7 @@ def create_location(request):
     # source=alert の時だけ必須＆存在チェック
     alert = None
     if source == "alert":
+        from alerts.models import Alert
         if not alert_id:
             return JsonResponse({"ok": False, "error": "alert_id_required"}, status=400)
         try:
@@ -66,6 +67,31 @@ def create_location(request):
         captured_at=captured_at,
         alert=alert,
     )
+    device.last_latitude = latitude
+    device.last_longitude = longitude
+    device.last_accuracy = accuracy
+    device.last_seen_at = timezone.now()
+    device.save(update_fields=["last_latitude", "last_longitude", "last_accuracy", "last_seen_at"])
+    # source=alert のとき、配信ログを responded に更新（あれば）
+    delivery_status = None
+    if source == "alert" and alert is not None:
+        delivery_status = "responded"
+        from alerts.models import AlertDelivery  # 遅延import（循環回避）
+        with transaction.atomic():
+            qs = AlertDelivery.objects.select_for_update().filter(alert=alert, device=device)
+            # 既存があるなら更新、なければ作成してrespondedにする（運用上安全）
+            if qs.exists():
+                delivery = qs.first()
+                delivery.status = "responded"
+                delivery.responded_at = timezone.now()
+                delivery.save(update_fields=["status", "responded_at"])
+            else:
+                AlertDelivery.objects.create(
+                    alert=alert,
+                    device=device,
+                    status="responded",
+                    responded_at=timezone.now(),
+                )
 
     return JsonResponse({
         "ok": True,
@@ -79,5 +105,6 @@ def create_location(request):
             "alert_id": loc.alert_id,
             "recorded_at": loc.recorded_at.isoformat(),
             "captured_at": loc.captured_at.isoformat() if loc.captured_at else None,
+            "delivery_status": delivery_status
         }
     }, status=201)

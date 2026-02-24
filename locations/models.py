@@ -6,7 +6,15 @@ from django.utils import timezone
 class Device(models.Model):
     device_id = models.CharField(max_length=255, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    last_latitude = models.FloatField(null=True, blank=True)
+    last_longitude = models.FloatField(null=True, blank=True)
+    last_accuracy = models.FloatField(null=True, blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    class Meta:
+        indexes = [
+            # bbox検索（範囲検索）の基本：複合インデックス
+            models.Index(fields=["last_latitude", "last_longitude"], name="idx_device_last_lat_lon"),
+        ]
     def __str__(self):
         return self.device_id
 
