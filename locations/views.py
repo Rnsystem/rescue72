@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 # Create your views here.
-
+import os
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -9,9 +9,17 @@ from django.views.decorators.http import require_POST
 
 from .models import Device, Location
 
+def require_api_key(request):
+    expected = os.environ.get("API_KEY")
+    provided = request.headers.get("X-API-Key")
+    return expected and provided == expected
+
 @csrf_exempt
 @require_POST
 def create_location(request):
+    # 認証チェック
+    if not require_api_key(request):
+        return JsonResponse({"ok": False, "error": "unauthorized"}, status=401)
     try:
         data = json.loads(request.body.decode("utf-8"))
         device_id = data["device_id"]
