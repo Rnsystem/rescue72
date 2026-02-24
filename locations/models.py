@@ -11,10 +11,25 @@ class Device(models.Model):
 
 
 class Location(models.Model):
-    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="locations")
+    SOURCE_CHOICES = [
+        ("pre", "pre-disaster"),
+        ("alert", "alert"),
+        ("manual", "manual"),
+    ]
+
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name="locations"
+    )
     latitude = models.FloatField()
     longitude = models.FloatField()
     accuracy = models.FloatField(null=True, blank=True)
+    source = models.CharField(
+        max_length=16,
+        choices=SOURCE_CHOICES,
+        default="manual"
+    )
     recorded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -28,6 +28,9 @@ def create_location(request):
         accuracy = data.get("accuracy", None)
         if accuracy is not None:
             accuracy = float(accuracy)
+        source = data.get("source", "manual")
+        if source not in ["pre", "alert", "manual"]:
+            return JsonResponse({"ok": False, "error": "invalid_source"}, status=400)
     except (KeyError, ValueError, json.JSONDecodeError) as e:
         return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
 
@@ -37,6 +40,7 @@ def create_location(request):
         latitude=latitude,
         longitude=longitude,
         accuracy=accuracy,
+        source=source, 
     )
 
     return JsonResponse({
@@ -47,6 +51,7 @@ def create_location(request):
             "latitude": loc.latitude,
             "longitude": loc.longitude,
             "accuracy": loc.accuracy,
+            "source": loc.source,
             "recorded_at": loc.recorded_at.isoformat(),
         }
     }, status=201)
