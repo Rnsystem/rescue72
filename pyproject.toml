@@ -1,0 +1,20 @@
+[project]
+name = "rescue72"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Uwasa Ryohma",email = "r.uwasa1130@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "Django>=6.0.2,<7.0.0",
+    "python-dotenv (>=1.2.1,<2.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
