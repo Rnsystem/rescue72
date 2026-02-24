@@ -33,5 +33,12 @@ class Location(models.Model):
     )
     recorded_at = models.DateTimeField(auto_now_add=True)  # 端末側時刻
     captured_at = models.DateTimeField(null=True, blank=True) # サーバ保存時刻
+    alert = models.ForeignKey(
+        "alerts.Alert",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="locations",
+    )
     def __str__(self):
         return f"{self.device.device_id} @ {self.latitude}, {self.longitude}"
