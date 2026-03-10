@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Rescue72 OPS - Alerts</title>
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f6f6f6; text-align: left; }
+    .muted { color:#666; }
+    .badge { display:inline-block; padding:2px 8px; border-radius: 999px; background:#eee; }
+  </style>
+</head>
+<body>
+  <h1>OPS Alerts</h1>
+  <p class="muted">adminログイン済み(staff)のみ閲覧できます。</p>
+
+  <form method="get" style="margin:12px 0;">
+    <label>type:
+      <select name="type">
+        <option value="">(all)</option>
+        {% for t in alert_types %}
+          <option value="{{ t }}" {% if selected_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label style="margin-left:12px;">
+      <input type="checkbox" name="only_active" value="1" {% if only_active %}checked{% endif %} />
+      only_active
+    </label>
+
+    <button type="submit" style="margin-left:12px;">apply</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>title</th>
+        <th>type</th>
+        <th>issued</th>
+        <th>expires</th>
+        <th>total</th>
+        <th>sent</th>
+        <th>responded</th>
+        <th>failed</th>
+        <th>pending</th>
+        <th>link</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.alert.id }}</td>
+          <td>{{ r.alert.title }}</td>
+          <td><span class="badge">{{ r.alert.alert_type }}</span></td>
+          <td>{{ r.alert.issued_at }}</td>
+          <td>{{ r.alert.expires_at }}</td>
+          <td>{{ r.total }}</td>
+          <td>{{ r.sent }}</td>
+          <td>{{ r.responded }}</td>
+          <td>{{ r.failed }}</td>
+          <td><b>{{ r.pending }}</b></td>
+          <td><a href="/ops/alerts/{{ r.alert.id }}/">detail</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" class="muted">no alerts</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Rescue72 回答</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h2>状況を選択してください</h2>
+
+  <input type="hidden" id="token" value="{{ token|escape }}"/>
+
+  <div>
+    <button id="b1" onclick="send('safe')">safe（無事）</button>
+    <button id="b2" onclick="send('need_help')">need_help（助けが必要）</button>
+    <button id="b3" onclick="send('injured')">injured（負傷）</button>
+    <button id="b4" onclick="send('unknown')">unknown（不明）</button>
+  </div>
+
+  <p>メモ:</p>
+  <input id="note" style="width: min(420px, 95vw)"/>
+
+  <p id="status"></p>
+  <pre id="out"></pre>
+
+<script>
+  let sending = false;
+
+  function setDisabled(disabled){
+    document.getElementById("b1").disabled = disabled;
+    document.getElementById("b2").disabled = disabled;
+    document.getElementById("b3").disabled = disabled;
+    document.getElementById("b4").disabled = disabled;
+  }
+
+  function getCurrentLocation(){
+    return new Promise((resolve) => {
+      if (!("geolocation" in navigator)) return resolve(null);
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          });
+        },
+        (err) => {
+          // 位置取得できなくても回答は送れるように null で続行
+          console.warn("geolocation error:", err);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0,
+        }
+      );
+    });
+  }
+
+  async function send(code){
+    if (sending) return;
+    sending = true;
+    setDisabled(true);
+    document.getElementById("status").textContent = "送信中…（位置情報取得中）";
+
+    try{
+      const token = document.getElementById("token").value;
+      const note = document.getElementById("note").value;
+      const alertId = token.split(":")[0];
+
+      const location = await getCurrentLocation();
+
+      document.getElementById("status").textContent = "送信中…";
+
+      const res = await fetch(`/api/alerts/${alertId}/respond/`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          token,
+          response_code: code,
+          response_note: note,
+          location, // ★ここ重要
+        })
+      });
+
+      const js = await res.json();
+      document.getElementById("out").textContent = JSON.stringify(js, null, 2);
+
+      if (res.ok && js.ok){
+        document.getElementById("status").textContent = "送信しました。ご協力ありがとうございます。";
+      }else{
+        document.getElementById("status").textContent = "送信に失敗しました。";
+        setDisabled(false);
+        sending = false;
+      }
+    }catch(e){
+      document.getElementById("status").textContent = "通信エラー: " + e.message;
+      setDisabled(false);
+      sending = false;
+    }
+  }
+</script>
+</script>
+</body>
+</html>

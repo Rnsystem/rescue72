@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Rescue72 OPS - Alert {{ alert.id }}</title>
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f6f6f6; text-align: left; }
+    .muted { color:#666; }
+    .badge { display:inline-block; padding:2px 8px; border-radius: 999px; background:#eee; }
+    .row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .card { border:1px solid #ddd; padding:10px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <h1>Alert {{ alert.id }} <span class="badge">{{ alert.alert_type }}</span></h1>
+    <a href="/ops/alerts/">← back</a>
+  </div>
+
+  <div class="card">
+    <div><b>title:</b> {{ alert.title }}</div>
+    <div class="muted"><b>issued:</b> {{ alert.issued_at }} / <b>expires:</b> {{ alert.expires_at }}</div>
+    <div style="margin-top:8px;">
+      <b>stats:</b>
+      sent={{ counts.sent }} /
+      responded={{ counts.responded }} /
+      failed={{ counts.failed }} /
+      pending={{ pending }}
+    </div>
+    <div style="margin-top:8px;">
+      <a href="/ops/alerts/{{ alert.id }}/deliveries.csv?status=sent">未回答（sent）CSV</a>
+    | <a href="/ops/alerts/{{ alert.id }}/deliveries.csv?status=responded">回答済み（responded）CSV</a>
+    | <a href="/ops/alerts/{{ alert.id }}/deliveries.csv">全件CSV</a>
+    </div>
+  </div>
+
+  <form method="get" style="margin-top:12px;">
+    <label>status:
+      <select name="status">
+        <option value="" {% if not status %}selected{% endif %}>(all)</option>
+        <option value="sent" {% if status == "sent" %}selected{% endif %}>sent</option>
+        <option value="responded" {% if status == "responded" %}selected{% endif %}>responded</option>
+        <option value="failed" {% if status == "failed" %}selected{% endif %}>failed</option>
+      </select>
+    </label>
+
+    <label style="margin-left:12px;">page_size:
+      <input name="page_size" value="{{ page_size }}" size="6" />
+    </label>
+
+    <button type="submit" style="margin-left:12px;">apply</button>
+  </form>
+
+  <p class="muted">showing {{ items|length }} / total {{ total }} (page {{ page }} / {{ num_pages }})</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>delivery_id</th>
+        <th>device_id</th>
+        <th>status</th>
+        <th>response_code</th>
+        <th>note</th>
+        <th>sent_at</th>
+        <th>responded_at</th>
+        <th>resolved</th>
+        <th>action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in items %}
+        <tr>
+          <td>{{ d.id }}</td>
+          <td>{{ d.device.device_id }}</td>
+          <td>{{ d.status }}</td>
+          <td>{{ d.response_code }}</td>
+          <td>{{ d.response_note }}</td>
+          <td>{{ d.sent_at }}</td>
+          <td>{{ d.responded_at }}</td>
+          <td>
+            {% if d.is_resolved %}✅{% else %}—{% endif %}
+          </td>
+          <td>
+            <!-- resolve / unresolve -->
+            <form method="post" action="/ops/alerts/{{ alert.id }}/resolve/" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              {% csrf_token %}
+              <input type="hidden" name="delivery_id" value="{{ d.id }}">
+              <input type="hidden" name="next" value="?status={{ status }}&page_size={{ page_size }}&page={{ page }}">
+              {% if d.is_resolved %}
+                <input type="hidden" name="resolved" value="0">
+                <button type="submit">未解決に戻す</button>
+              {% else %}
+                <input type="hidden" name="resolved" value="1">
+                <button type="submit">対応済みにする</button>
+              {% endif %}
+
+              <input name="note" placeholder="メモ（任意）" value="{{ d.resolved_note }}" style="width:220px;">
+            </form>
+
+            {% if d.is_resolved and d.resolved_at %}
+              <div class="muted" style="margin-top:4px;">resolved_at: {{ d.resolved_at }}</div>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="muted">no deliveries</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="row" style="margin-top:12px;">
+    {% if page > 1 %}
+      <a href="?status={{ status }}&page_size={{ page_size }}&page={{ page|add:-1 }}">← prev</a>
+    {% endif %}
+    {% if page < num_pages %}
+      <a href="?status={{ status }}&page_size={{ page_size }}&page={{ page|add:1 }}">next →</a>
+    {% endif %}
+  </div>
+</body>
+</html>

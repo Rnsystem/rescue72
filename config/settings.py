@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'accounts',
     'alerts',
     'locations',
+    "groups",
+    "push",
 ]
 
 MIDDLEWARE = [
@@ -123,3 +125,15 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:admin@example.com")
+
+RESCUE72_TOKEN_SECRET = os.environ.get("RESCUE72_TOKEN_SECRET", "dev-secret-change-me")
+
+# 外部公開URL（Push通知クリックで開くURLのベース）
+# 例: 開発 http://127.0.0.1:8000
+#     本番 https://rescue72.example.com
+BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8000").rstrip("/")

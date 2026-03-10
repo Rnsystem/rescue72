@@ -10,6 +10,9 @@ class Device(models.Model):
     last_longitude = models.FloatField(null=True, blank=True)
     last_accuracy = models.FloatField(null=True, blank=True)
     last_seen_at = models.DateTimeField(null=True, blank=True)
+    watch_prefecture_code = models.CharField(max_length=8, blank=True, default="")
+    watch_prefecture_name = models.CharField(max_length=32, blank=True, default="")
+    watch_prefecture_updated_at = models.DateTimeField(null=True, blank=True)
     class Meta:
         indexes = [
             # bbox検索（範囲検索）の基本：複合インデックス
