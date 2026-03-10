@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Rescue72 Push Setup</title>
+</head>
+<body>
+  <h1>Rescue72 Push Setup</h1>
+
+  <label>Device ID:
+    <input id="deviceId" value="test-device-100" />
+  </label>
+  <button id="btnSetup">通知を有効化（購読登録）</button>
+
+  <hr/>
+  <button id="btnTest">テスト送信（この端末へ）</button>
+
+  <pre id="log"></pre>
+
+<script>
+const API_KEY = "dev-api-key-change-me"; // ★開発用（本番は置き換え）
+
+function log(msg) {
+  document.getElementById("log").textContent += msg + "\n";
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function getVapidPublicKey() {
+  const res = await fetch("/api/push/vapid_public_key/");
+  const j = await res.json();
+  if (!j.ok) throw new Error("failed to fetch vapid key");
+  return j.vapid_public_key;
+}
+
+async function setupPush() {
+  const deviceId = document.getElementById("deviceId").value.trim();
+  if (!deviceId) throw new Error("device_id required");
+
+  if (!("serviceWorker" in navigator)) throw new Error("ServiceWorker not supported");
+  if (!("PushManager" in window)) throw new Error("Push not supported");
+
+  // 1) SW登録
+  const reg = await navigator.serviceWorker.register("/sw.js");
+  log("SW registered");
+  await navigator.serviceWorker.ready;   // ★activeになるまで待つ
+  log("SW ready");
+
+  // 2) 通知権限
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") throw new Error("Notification permission denied");
+  log("Notification granted");
+
+  // 3) Push購読
+  const vapidPublicKey = await getVapidPublicKey();
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+  });
+
+  log("Subscribed: " + sub.endpoint);
+
+  // 4) サーバーに保存
+  const payload = {
+    device_id: deviceId,
+    subscription: sub.toJSON(),
+    user_agent: navigator.userAgent,
+  };
+
+  const res = await fetch("/api/push/subscribe/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
+  const j = await res.json();
+  log("subscribe api: " + JSON.stringify(j));
+}
+
+async function testSend() {
+  const deviceId = document.getElementById("deviceId").value.trim();
+  const res = await fetch("/api/push/send/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+    },
+    body: JSON.stringify({
+      device_id: deviceId,
+      title: "Rescue72",
+      body: "Pushテストです",
+    }),
+  });
+  const j = await res.json();
+  log("send api: " + JSON.stringify(j));
+}
+
+document.getElementById("btnSetup").addEventListener("click", () => {
+  setupPush().catch(e => log("ERROR: " + e.message));
+});
+document.getElementById("btnTest").addEventListener("click", () => {
+  testSend().catch(e => log("ERROR: " + e.message));
+});
+</script>
+</body>
+</html>

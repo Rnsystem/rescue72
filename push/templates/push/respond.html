@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rescue72 - 状況報告</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    .card { max-width: 520px; margin: 0 auto; padding: 16px; border: 1px solid #ddd; border-radius: 12px; }
+    .row { margin: 12px 0; }
+    button { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; margin: 6px 0; }
+    button.primary { border-color: #333; }
+    textarea, input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; }
+    .ok { color: #0a7; }
+    .ng { color: #c00; }
+    small { color:#666; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>状況報告</h2>
+
+    <div class="row">
+      <label>device_id</label>
+      <input id="deviceId" placeholder="例: test-device-100" />
+      <small>※初回だけ入力 → 次回から保存されます</small>
+    </div>
+
+    <div class="row">
+      <label>alert_id</label>
+      <input id="alertId" readonly />
+      <small>通知から開いた場合は自動で入ります</small>
+    </div>
+
+    <div class="row">
+      <label>メモ（任意）</label>
+      <textarea id="note" rows="3" placeholder="例：家が倒壊 / けがあり など"></textarea>
+    </div>
+
+    <div class="row">
+      <button class="primary" onclick="send('safe')">✅ 無事（safe）</button>
+      <button class="primary" onclick="send('need_help')">🆘 助けが必要（need_help）</button>
+      <button class="primary" onclick="send('injured')">🩹 負傷（injured）</button>
+      <button onclick="send('unknown')">？ 不明（unknown）</button>
+    </div>
+
+    <div class="row" id="msg"></div>
+  </div>
+
+<script>
+  const API_KEY = "dev-api-key-change-me"; // 開発用。後でトークン方式に置き換え推奨
+
+  function qs(name) {
+    const u = new URL(location.href);
+    return u.searchParams.get(name);
+  }
+
+  // 初期化
+  (function init(){
+    const alertId = qs("alert_id") || "";
+    document.getElementById("alertId").value = alertId;
+
+    const saved = localStorage.getItem("rescue72_device_id") || "";
+    document.getElementById("deviceId").value = saved;
+  })();
+
+  async function send(code) {
+    const deviceIdEl = document.getElementById("deviceId");
+    const alertIdEl = document.getElementById("alertId");
+    const noteEl = document.getElementById("note");
+    const msgEl = document.getElementById("msg");
+
+    const device_id = (deviceIdEl.value || "").trim();
+    const alert_id = (alertIdEl.value || "").trim();
+    const response_note = (noteEl.value || "").trim();
+
+    if (!device_id) {
+      msgEl.innerHTML = '<p class="ng">device_id を入力してください</p>';
+      return;
+    }
+    if (!alert_id) {
+      msgEl.innerHTML = '<p class="ng">alert_id がありません（通知から開くか、URLに ?alert_id= を付けてください）</p>';
+      return;
+    }
+
+    localStorage.setItem("rescue72_device_id", device_id);
+
+    const url = `/api/alerts/${encodeURIComponent(alert_id)}/respond/`;
+    const payload = { device_id, response_code: code, response_note };
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        msgEl.innerHTML = `<p class="ng">送信失敗: ${data.error || res.status}</p>`;
+        return;
+      }
+      msgEl.innerHTML = `<p class="ok">送信しました ✅（${data.response_code}）</p>`;
+    } catch (e) {
+      msgEl.innerHTML = `<p class="ng">通信エラー: ${String(e)}</p>`;
+    }
+  }
+</script>
+</body>
+</html>
