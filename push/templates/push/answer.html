@@ -33,27 +33,36 @@
     document.getElementById("b4").disabled = disabled;
   }
 
-  function getCurrentLocation(){
+  function getToken(){
+    const hidden = document.getElementById("token")?.value?.trim();
+    if (hidden) return hidden;
+
+    const url = new URL(window.location.href);
+    return (url.searchParams.get("token") || "").trim();
+  }
+
+  function getLocation(){
     return new Promise((resolve) => {
-      if (!("geolocation" in navigator)) return resolve(null);
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           resolve({
             lat: pos.coords.latitude,
             lon: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
+            accuracy: pos.coords.accuracy
           });
         },
-        (err) => {
-          // 位置取得できなくても回答は送れるように null で続行
-          console.warn("geolocation error:", err);
+        () => {
           resolve(null);
         },
         {
           enableHighAccuracy: true,
           timeout: 8000,
-          maximumAge: 0,
+          maximumAge: 0
         }
       );
     });
@@ -63,14 +72,28 @@
     if (sending) return;
     sending = true;
     setDisabled(true);
-    document.getElementById("status").textContent = "送信中…（位置情報取得中）";
+    document.getElementById("status").textContent = "送信中…";
 
     try{
-      const token = document.getElementById("token").value;
+      const token = getToken();
+      if (!token){
+        document.getElementById("status").textContent = "tokenが見つかりません。通知から開き直してください。";
+        setDisabled(false);
+        sending = false;
+        return;
+      }
+
       const note = document.getElementById("note").value;
       const alertId = token.split(":")[0];
+      if (!alertId){
+        document.getElementById("status").textContent = "alert_idが取得できません。";
+        setDisabled(false);
+        sending = false;
+        return;
+      }
 
-      const location = await getCurrentLocation();
+      document.getElementById("status").textContent = "位置情報取得中…";
+      const location = await getLocation();
 
       document.getElementById("status").textContent = "送信中…";
 
@@ -78,20 +101,32 @@
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({
-          token,
+          token: token,
           response_code: code,
           response_note: note,
-          location, // ★ここ重要
+          location: location
         })
       });
 
-      const js = await res.json();
-      document.getElementById("out").textContent = JSON.stringify(js, null, 2);
+      const text = await res.text();
+      let js = null;
+      try {
+        js = JSON.parse(text);
+      } catch (e) {}
 
-      if (res.ok && js.ok){
-        document.getElementById("status").textContent = "送信しました。ご協力ありがとうございます。";
-      }else{
-        document.getElementById("status").textContent = "送信に失敗しました。";
+      if (js){
+        document.getElementById("out").textContent = JSON.stringify(js, null, 2);
+
+        if (res.ok && js.ok){
+          document.getElementById("status").textContent = "送信しました。ご協力ありがとうございます。";
+        } else {
+          document.getElementById("status").textContent = "送信に失敗しました。";
+          setDisabled(false);
+          sending = false;
+        }
+      } else {
+        document.getElementById("out").textContent = text.slice(0, 2000);
+        document.getElementById("status").textContent = `JSONではない応答が返りました。status=${res.status}`;
         setDisabled(false);
         sending = false;
       }
@@ -101,7 +136,6 @@
       sending = false;
     }
   }
-</script>
 </script>
 </body>
 </html>

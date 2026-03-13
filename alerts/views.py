@@ -527,29 +527,6 @@ def respond_alert(request, alert_id: int):
     if not device_id:
         return JsonResponse({"ok": False, "error": "device_id_required"}, status=400)
 
-    # --- 位置情報（任意）を Device に保存 ---
-    loc = data.get("location")  # {lat, lon, accuracy} を想定
-    if isinstance(loc, dict):
-        try:
-            lat = float(loc.get("lat"))
-            lon = float(loc.get("lon"))
-            acc = loc.get("accuracy", None)
-            acc = float(acc) if acc is not None else None
-
-            # 簡易バリデーション
-            if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
-                raise ValueError("lat/lon out of range")
-
-            Device.objects.filter(device_id=device_id).update(
-                last_latitude=lat,
-                last_longitude=lon,
-                last_accuracy=acc,
-                last_seen_at=timezone.now(),
-            )
-        except Exception:
-            # 位置情報が壊れていても回答処理を止めない（運用優先）
-            pass
-
     # 旧互換：status が来たら優先（responded / failed）
     status = data.get("status", None)
     if status is not None:
@@ -576,34 +553,28 @@ def respond_alert(request, alert_id: int):
             alert_id=alert_id,
             device__device_id=device_id,
         )
-        # --- 位置情報（任意）をDeviceへ保存 ---
-        loc = data.get("location")  # {lat, lon, accuracy} or null
-        if isinstance(loc, dict):
-            lat = loc.get("lat")
-            lon = loc.get("lon")
-            acc = loc.get("accuracy")
-
-            device_obj = delivery.device  # FKで取れてる
-            changed_device = False
-
-            if lat is not None:
-                device_obj.last_latitude = float(lat)
-                changed_device = True
-            if lon is not None:
-                device_obj.last_longitude = float(lon)
-                changed_device = True
-            if acc is not None:
-                device_obj.last_accuracy = float(acc)
-                changed_device = True
-
-            # 「回答した＝生存確認」なので now で更新
-            device_obj.last_seen_at = timezone.now()
-            changed_device = True
-
-            if changed_device:
-                device_obj.save(update_fields=["last_latitude", "last_longitude", "last_accuracy", "last_seen_at"])
     except AlertDelivery.DoesNotExist:
         return JsonResponse({"ok": False, "error": "delivery_not_found"}, status=404)
+
+    # 位置情報（任意）を Device に保存
+    loc = data.get("location")
+    if isinstance(loc, dict):
+        try:
+            lat = float(loc.get("lat"))
+            lon = float(loc.get("lon"))
+            acc_raw = loc.get("accuracy")
+            acc = float(acc_raw) if acc_raw is not None else None
+
+            # 簡易バリデーション
+            if -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0:
+                Device.objects.filter(device_id=device_id).update(
+                    last_latitude=lat,
+                    last_longitude=lon,
+                    last_accuracy=acc,
+                    last_seen_at=timezone.now(),
+                )
+        except (TypeError, ValueError):
+            pass
 
     now = timezone.now()
     changed = False
@@ -645,7 +616,6 @@ def respond_alert(request, alert_id: int):
         },
         status=200,
     )
-
 
 
 @csrf_exempt

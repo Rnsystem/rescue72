@@ -140,15 +140,15 @@ self.addEventListener("push", (event) => {
     let data = { title: "Rescue72", body: "", url: "/answer/" };
 
     try {
-      if (event.data) data = await event.data.json(); // ★await必須
+      if (event.data) data = await event.data.json();
     } catch (e) {
       const text = event.data ? await event.data.text() : "";
       data = { title: "Rescue72", body: text || "", url: "/answer/" };
     }
 
     const title = data.title || "Rescue72";
-    const body  = data.body  || "";
-    const url   = data.url   || "/answer/";
+    const body  = data.body || "";
+    const url   = data.url || "/answer/";
 
     await self.registration.showNotification(title, {
       body,
@@ -158,7 +158,6 @@ self.addEventListener("push", (event) => {
 });
 
 self.addEventListener("notificationclick", (event) => {
-  console.log("notificationclick", event.notification?.data); // ★ログ
   event.notification.close();
 
   const url = event.notification?.data?.url || "/answer/";
@@ -177,12 +176,14 @@ self.addEventListener("notificationclick", (event) => {
         return;
       }
     }
+
     return clients.openWindow(url);
   })());
 });
 """
     resp = HttpResponse(js, content_type="application/javascript")
     resp["Service-Worker-Allowed"] = "/"
+    resp["Cache-Control"] = "no-store, max-age=0"
     return resp
 
 
